@@ -1,7 +1,7 @@
 package com.example.demo.controller
 
 import com.example.demo.model.Bank
-import org.junit.jupiter.api.Assertions.*
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
@@ -16,14 +16,10 @@ import org.springframework.test.web.servlet.post
 
 @SpringBootTest
 @AutoConfigureMockMvc
-internal class BankControllerTest {
-
-    @Autowired
-    lateinit var mockMvc: MockMvc
-
-    @Autowired
-    lateinit var mockMvc: MockMvc
-
+internal class BankControllerTest @Autowired constructor(
+    val mockMvc: MockMvc,
+    val objectMapper: ObjectMapper
+) {
     val bankUrl = "/api/banks"
 
     @Nested
@@ -90,20 +86,35 @@ internal class BankControllerTest {
             // given
             val newBank = Bank("acc123", 31.345, 2)
 
-            // when/then
-            mockMvc.post(bankUrl) {
+            // when
+            val performPost = mockMvc.post(bankUrl) {
                 contentType = MediaType.APPLICATION_JSON
-                content =
+                content = objectMapper.writeValueAsString(newBank)
             }
-                .andDo { print() }
+
+            //then
+            performPost.andDo { print() }
                 .andExpect {
                     status { isCreated() }
                     content { contentType(MediaType.APPLICATION_JSON) }
-                    jsonPath("$.trust") { value("3.14") }
-                    jsonPath("$.transactionFee") { value("17") }
+                    jsonPath("$.accountNumber") { value("acc123") }
+                    jsonPath("$.trust") { value("31.345") }
+                    jsonPath("$.transactionFee") { value("2") }
                 }
+        }
 
+        @Test
+        fun `should return BAD REQUEST if bank with given account number already exists`() {
+            //given
+            val invalidBank = Bank("1234", 1.0, 1)
+
+            val performPost = mockMvc.post(bankUrl) {
+                contentType = MediaType.APPLICATION_JSON
+                content = objectMapper.writeValueAsString(invalidBank)
+            }
+
+            performPost.andDo { print() }
+                .andExpect { status { isBadRequest() } }
         }
     }
-
 }
